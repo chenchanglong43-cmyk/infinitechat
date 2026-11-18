@@ -57,27 +57,23 @@ USER_METRICS = FoundationMetrics.create(namespace="user_service")
 # 创建监控指标实例，命名空间 user_service，监控平台用来区分不同服务的指标
 
 # 构建依赖容器
+# 构建依赖容器
 async def build_container(settings: UserServiceSettings) -> tuple[UserContainer, CoreRuntime]:
-    # 先构建数据库相关的核心运行时（引擎、会话工厂）
     core = build_core_runtime(settings)
     return (
         UserContainer(
             settings=settings,
-            # 把核心运行时里的数据库引擎塞进去
             engine=core.engine,
-            # 把核心运行时里的会话工厂塞进去
             session_factory=core.session_factory,
-            # 实例化内部校验服务，给它传会话工厂
+            cache=core.cache,
             internal=InternalValidationService(
                 session_factory=core.session_factory,
             ),
-            # 组装服务令牌工具：先用密钥生成JwtCodec，再包成ServiceTokenCodec
+            # service_tokens(服务令牌): 创建服务 Token 编解码
             service_tokens=ServiceTokenCodec(JwtCodec(settings.service_jwt_secret)),
         ),
-        # 把core也返回，后面服务关闭的时候要用它执行close释放数据库连接
         core,
     )
-
 # 创建应用
 def create_app(
     # 可以外部提前传好容器，不传就内部自动新建
@@ -214,6 +210,9 @@ def create_app(
         active = request.app.state.container
         async with active.session_factory() as session:  # 开一个数据库会话, 用完自动关闭
             await session.scalar(text("SELECT 1"))
+        if not await active.cache.ping():
+            # Redis readiness failed
+            raise RuntimeError("Redis readiness failed")
         return {"status": "UP"}
 
     # 指标导出
