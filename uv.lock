@@ -1,0 +1,31 @@
+version = 1
+revision = 3
+requires-python = ">=3.13.14, <3.14"
+
+[manifest]
+members = [
+    "infinitechat-foundation",
+    "infinitechat-user-service",
+    "infinitechat-workspace",
+]
+
+[[package]]
+name = "infinitechat-foundation"
+version = "0.1.0"
+source = { editable = "packages/foundation" }
+
+[[package]]
+name = "infinitechat-user-service"
+version = "0.1.0"
+source = { editable = "services/user_service" }
+dependencies = [
+    { name = "infinitechat-foundation" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "infinitechat-foundation", editable = "packages/foundation" }]
+
+[[package]]
+name = "infinitechat-workspace"
+version = "0.1.0"
+source = { virtual = "." }
