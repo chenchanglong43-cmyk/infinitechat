@@ -16,5 +16,12 @@ class UserServiceSettings(FoundationSettings):
     service_advertise_host: str = "127.0.0.1"
     # 服务端口：默认 8101，必须大于 0，不能大于 65535
     service_port: int = Field(default=8101, gt=0, le=65_535)
-    # 日志级别：五个标准级别之一（DEBUG 到 CRITICAL）
+    # 日志级别：只能是 "DEBUG"/"INFO"/"WARNING"/"ERROR"/ "CRITICAL"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+
+    mysql_dsn: str  # MySQL 连接串
+
+    # 服务令牌密钥：最短 32
+    service_jwt_secret: SecretStr = Field(min_length=32)
+    # 内部允许调用方：默认
+    internal_allowed_callers: str = "RealTimeService,OfflineDataService,RedPacketService"
