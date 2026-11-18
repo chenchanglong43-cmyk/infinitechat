@@ -1,49 +1,51 @@
 """Explicit async repositories for UserService-owned tables."""
-# 这个文件是用户仓储层，专门封装User表的数据库操作
-# 好处：SQL语句统一放在这里，业务代码不用到处写select，方便维护
+# 用户仓储层，专门封装user表的数据库操作，把SQL逻辑和业务代码分开
 
+from typing import cast
+
+# sqlalchemy 查询语句
 from sqlalchemy import select
-# select：SQLAlchemy的查询构造器，用来拼select语句
-
+# 异步数据库会话
 from sqlalchemy.ext.asyncio import AsyncSession
-# AsyncSession：异步数据库会话，所有增删查改都要靠它
 
+# 用户表ORM模型
 from user_service.storage.models import UserModel
-# 导入用户表模型，对应数据库里的user表
 
-# 用户仓储类，所有和用户表相关的数据库操作都写在这里
+
+# 用户仓储类，只负责和user表打交道
 class UserRepository:
-    # 构造方法，创建仓储对象的时候，必须传入数据库会话
+    # 构造方法：传入数据库会话，后面所有查询都复用这个session
     def __init__(self, session: AsyncSession) -> None:
-        # 把会话存到实例变量里，后面查、加数据都用这个session
         self.session = session
 
-    # 根据用户id查询单个用户
-    # for_update：是否加行锁，更新数据的时候开启，防止并发争抢
+    # 根据用户id查询用户
     async def get_by_id(
         self,
         user_id: int,
-        *,
-        for_update: bool = False,
+        *,  # 后面参数必须关键字传参，防止传参顺序搞错
+        for_update: bool = False,  # 是否加行锁
     ) -> UserModel | None:
-        # 拼SQL：select * from user where user_id = 传入的id
+        # 组装查询语句：根据user_id匹配
         statement = select(UserModel).where(UserModel.user_id == user_id)
-
-        # 注意：行锁必须在事务里面才生效，单独查询不加事务没用
+        # 如果需要行锁，加上with_for_update，事务内锁住这条记录，防止并发争抢
         if for_update:
             statement = statement.with_for_update()
+        # scalar拿到单条结果，cast做类型提示转换，告诉IDE返回类型
+        return  await self.session.scalar(statement)
 
-        # scalar() 拿到第一条数据，没有就返回None
+    # 根据邮箱查询用户，默认只查未逻辑删除的账号
+    async def get_by_email(self, email: str, *, for_update: bool = False) -> UserModel | None:
+        # 查询条件：邮箱匹配 + is_delete=0（没有被逻辑删除）
+        statement = select(UserModel).where(
+            UserModel.email == email,
+            UserModel.is_delete == 0,
+        )
+        # 开启行锁，并发注册/登录场景防超卖、重复注册
+        if for_update:
+            statement = statement.with_for_update()
+        # 执行查询，返回用户对象或者None
         return await self.session.scalar(statement)
 
-    # 添加一条用户数据
-    # 注意：这里只是把对象放进会话缓存，不会立刻写入数据库
-    # 真正入库要等外层调用 await session.commit()
+    # 添加用户到会话，注意：只是加入session，不是立刻入库，等事务commit才真正写数据库
     def add(self, user: UserModel) -> None:
         self.session.add(user)
-
-    # 根据邮箱查询用户，登录场景用
-    async def get_by_email(self, email: str) -> UserModel | None:
-        # 拼SQL：select * from user where email = 传入邮箱
-        stmt = select(UserModel).where(UserModel.email == email)
-        return await self.session.scalar(stmt)
