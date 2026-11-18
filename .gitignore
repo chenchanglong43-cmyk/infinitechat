@@ -1,0 +1,259 @@
+# Byte-compiled / optimized / DLL files
+# 忽略 Python 字节码缓存
+__pycache__/
+# 忽略 编译出来的 Python 文件
+*.py[cod]
+# 忽略 *$py.class
+*$py.class
+
+# C extensions
+# 忽略 *.so
+*.so
+
+# Distribution / packaging
+# 忽略 .Python
+.Python
+# 忽略 构建产物
+build/
+# 忽略 develop-eggs/
+develop-eggs/
+# 忽略 构建产物
+dist/
+# 忽略 downloads/
+downloads/
+# 忽略 eggs/
+eggs/
+# 忽略 .eggs/
+.eggs/
+# 忽略 /lib/
+/lib/
+# 忽略 /lib64/
+/lib64/
+# 忽略 parts/
+parts/
+# 忽略 sdist/
+sdist/
+# 忽略 var/
+var/
+# 忽略 wheels/
+wheels/
+# 忽略 share/python-wheels/
+share/python-wheels/
+# 忽略 打包元数据
+*.egg-info/
+# 忽略 .installed.cfg
+.installed.cfg
+# 忽略 *.egg
+*.egg
+# 忽略 MANIFEST
+MANIFEST
+# 忽略 文档
+docs/
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+# 忽略 *.manifest
+*.manifest
+# 忽略 *.spec
+*.spec
+
+# Installer logs
+# 忽略 pip-log.txt
+pip-log.txt
+# 忽略 pip-delete-this-directory.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+# 忽略 覆盖率报告
+htmlcov/
+# 忽略 .tox/
+.tox/
+# 忽略 .nox/
+.nox/
+# 忽略 覆盖率数据
+.coverage
+# 忽略 .coverage.*
+.coverage.*
+# 忽略 .cache
+.cache
+# 忽略 nosetests.xml
+nosetests.xml
+# 忽略 coverage.xml
+coverage.xml
+# 忽略 *.cover
+*.cover
+# 忽略 *.py,cover
+*.py,cover
+# 忽略 .hypothesis/
+.hypothesis/
+# 忽略 pytest 缓存
+.pytest_cache/
+# 忽略 cover/
+cover/
+
+# Web dependencies and browser artifacts
+# 忽略 前端依赖
+node_modules/
+# 忽略 playwright-report/
+playwright-report/
+# 忽略 test-results/
+test-results/
+# 忽略 coverage/
+coverage/
+
+# Translations
+# 忽略 *.mo
+*.mo
+# 忽略 *.pot
+*.pot
+
+# Django stuff:
+# 忽略 日志文件
+*.log
+# 忽略 local_settings.py
+local_settings.py
+# 忽略 db.sqlite3
+db.sqlite3
+# 忽略 db.sqlite3-journal
+db.sqlite3-journal
+
+# Flask stuff:
+# 忽略 instance/
+instance/
+# 忽略 .webassets-cache
+.webassets-cache
+
+# Scrapy stuff:
+# 忽略 .scrapy
+.scrapy
+
+# Sphinx documentation
+# 忽略 docs/_build/
+docs/_build/
+
+# PyBuilder
+# 忽略 .pybuilder/
+.pybuilder/
+# 忽略 target/
+target/
+
+# Jupyter Notebook
+# 忽略 .ipynb_checkpoints
+.ipynb_checkpoints
+
+# IPython
+# 忽略 profile_default/
+profile_default/
+# 忽略 ipython_config.py
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+# 忽略 __pypackages__/
+__pypackages__/
+
+# Celery stuff
+# 忽略 celerybeat-schedule
+celerybeat-schedule
+# 忽略 celerybeat.pid
+celerybeat.pid
+
+# SageMath parsed files
+# 忽略 *.sage.py
+*.sage.py
+
+# Environments
+# 忽略 本地环境变量(含密钥)
+.env
+# 忽略 本地环境变量目录(含密钥)
+.env.d/
+# 忽略 deploy/compose/.env.prod
+deploy/compose/.env.prod
+# 忽略 web/.env.local
+web/.env.local
+# 忽略 虚拟环境
+.venv
+# 忽略 env/
+env/
+# 忽略 虚拟环境
+venv/
+# 忽略 ENV/
+ENV/
+# 忽略 env.bak/
+env.bak/
+# 忽略 venv.bak/
+venv.bak/
+
+# Spyder project settings
+# 忽略 .spyderproject
+.spyderproject
+# 忽略 .spyproject
+.spyproject
+
+# Rope project settings
+# 忽略 .ropeproject
+.ropeproject
+
+# mkdocs documentation
+# 忽略 /site
+/site
+
+# mypy
+# 忽略 mypy 缓存
+.mypy_cache/
+# 忽略 .dmypy.json
+.dmypy.json
+# 忽略 dmypy.json
+dmypy.json
+
+# Pyre type checker
+# 忽略 .pyre/
+.pyre/
+
+# pytype static type analyzer
+# 忽略 .pytype/
+.pytype/
+
+# Cython debug symbols
+# 忽略 cython_debug/
+cython_debug/
+
+# IDE
+# 忽略 .cursor/
+.cursor/
+# 忽略 .claude/
+.claude/
+# 忽略 .codex/
+.codex/
+# 忽略 .github/
+.github/
+# 忽略 VS Code 配置
+.vscode/
+# 忽略 PyCharm 配置
+.idea/
+
+# macOS
+# 忽略 macOS 生成的文件
+.DS_Store
+
+# Windows
+# 忽略 Thumbs.db
+Thumbs.db
+# 忽略 ehthumbs.db
+ehthumbs.db
+
+# Linux
+# 忽略 .directory
+.directory
