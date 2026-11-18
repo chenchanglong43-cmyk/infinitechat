@@ -4,8 +4,13 @@ version = "0.1.0"
 description = "InfiniteChat user, contact and session service"
 requires-python = ">=3.13.14"
 dependencies = [
+    "fastapi>=0.116,<1",
     "infinitechat-foundation",
+    "uvicorn[standard]>=0.35,<1",
 ]
+
+[project.scripts]  # 命令行入口: 命令名 = 模块:函数
+infinitechat-user-api = "user_service.entrypoints:api_main"  # 命令 infinitechat-user-api: 运行 user_service 的 api_...
 
 [build-system]
 requires = ["hatchling"]
