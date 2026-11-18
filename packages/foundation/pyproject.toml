@@ -9,6 +9,7 @@ dependencies = [
     "prometheus-client>=0.22,<1",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.10,<3",
+    "pyjwt>=2.10,<3",
     "structlog>=25,<27",
 ]
 
