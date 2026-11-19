@@ -5,6 +5,8 @@ from infinitechat.contracts.http.auth import (
     LoginSessionResponse,
     PasswordLoginRequest,
     TokenResponse,
+    UpdateAvatarRequest,
+    UploadUrlResponse,
     UserRegisterRequest,
 )
 from infinitechat.contracts.http.internal import (
@@ -25,6 +27,8 @@ __all__ = (
     "PasswordLoginRequest",
     "SingleMessageValidateRequest",
     "TokenResponse",
+    "UpdateAvatarRequest",
+    "UploadUrlResponse",
     "UserInfo",
     "UserRegisterRequest",
     "UserStatus",
