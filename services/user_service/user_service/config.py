@@ -5,48 +5,41 @@ from typing import Literal
 from infinitechat.foundation.settings import FoundationSettings
 from pydantic import Field, SecretStr
 
-# 用户服务配置
-# 用户服务配置 (配置类, 字段从环境变量读)
+# 用户服务配置类，所有字段自动从环境变量加载
 class UserServiceSettings(FoundationSettings):
-    app_env: str = "local"  # 应用环境：默认 "local"
-    service_name: str = "UserService"  # 服务名：默认 "UserService"
-    # 监听地址：默认 "0.0.0.0"
-    service_host: str = "0.0.0.0"  # noqa: S104 - explicit bind setting
-    # 服务对外公布主机：默认 "127.0.0.1"
-    service_advertise_host: str = "127.0.0.1"
-    # 服务端口：默认 8101，必须大于 0，不能大于 65535
-    service_port: int = Field(default=8101, gt=0, le=65_535)
-    # 日志级别：只能是 "DEBUG"/"INFO"/"WARNING"/"ERROR"/ "CRITICAL"
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    app_env: str = "local"  # 运行环境，local/dev/prod
+    service_name: str = "UserService"  # 服务名称，日志、监控里用来标识
+    service_host: str = "0.0.0.0"  # 监听网卡，0.0.0.0代表允许外部访问
+    service_advertise_host: str = "127.0.0.1"  # 别的服务用来连我的地址
+    service_port: int = Field(default=8101, gt=0, le=65_535)  # 服务端口，默认8101
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"  # 日志打印等级
 
-    mysql_dsn: str  # MySQL 连接串
-    redis_url: str  # Redis 地址
-    redis_db: int = 2  # Redis库号：默认 2
+    mysql_dsn: str  # MySQL连接地址，账号密码都写在这串里
+    redis_url: str  # Redis连接地址
+    redis_db: int = 2  # 用Redis的第2个库，分开业务数据
 
-    # 用户令牌密钥：最短 32
-    jwt_secret: SecretStr = Field(min_length=32)
-    # JWT密钥编码：只能是 "raw"/"base64"，默认 "raw"
-    jwt_key_encoding: Literal["raw", "base64"] = "raw"
-    # 服务令牌密钥：最短 32
-    service_jwt_secret: SecretStr = Field(min_length=32)
-    # 内部允许调用方：默认
-    internal_allowed_callers: str = "RealTimeService,OfflineDataService,RedPacketService"
-    # 字段 legacy_password_salt: 密钥字符串(可为空), 默认 空
-    legacy_password_salt: SecretStr | None = None
-    # 访问令牌存活秒数：默认 30 * 60
-    access_token_ttl_seconds: int = Field(default=30 * 60, gt=0)
-    # 刷新令牌存活秒数
-    refresh_token_ttl_seconds: int = Field(default=7 * 24 * 60 * 60, gt=0)
+    jwt_secret: SecretStr = Field(min_length=32)  # 用户登录JWT签名密钥，至少32位，保密
+    jwt_key_encoding: Literal["raw", "base64"] = "raw"  # 密钥是原生字符串还是base64编码
+    service_jwt_secret: SecretStr = Field(min_length=32)  # 微服务之间内部调用的密钥
+    internal_allowed_callers: str = "RealTimeService,OfflineDataService,RedPacketService"  # 允许哪些内部服务访问
+    legacy_password_salt: SecretStr | None = None  # 老MD5密码的盐，用来兼容旧账号，没有就空
+    access_token_ttl_seconds: int = Field(default=30 * 60, gt=0)  # access_token有效期，默认30分钟
+    refresh_token_ttl_seconds: int = Field(default=7 * 24 * 60 * 60, gt=0)  # refresh_token有效期，默认7天
 
-    smtp_host: str  # SMTP主机
-    # SMTP端口：必须大于 0，不能大于 65535
-    smtp_port: int = Field(gt=0, le=65_535)
-    smtp_username: str  # SMTP用户名
-    smtp_password: SecretStr  # SMTP密码
-    smtp_use_tls: bool = True  # 字段 smtp_use_tls: 布尔值, 默认 真
-    smtp_sender: str  # SMTP发送人
+    minio_endpoint: str  # MinIO对象存储地址，存头像、文件
+    minio_access_key: SecretStr  # MinIO账号
+    minio_secret_key: SecretStr  # MinIO密码
+    minio_bucket: str = "infinitechat"  # 存储桶名称，文件都放这个桶里
+    minio_secure: bool = False  # MinIO是否用HTTPS，本地开发一般关
+    presigned_url_ttl_seconds: int = Field(default=300, gt=0, le=3600)  # 上传下载临时链接有效期，最多1小时
+    public_gateway_base_url: str = "http://127.0.0.1:10010"  # 网关地址，前端走网关访问
 
-    # 雪花机器号：不能小于 0，不能大于 31
-    snowflake_worker_id: int = Field(ge=0, le=31)
-    # 雪花数据中心号：不能小于 0，不能大于 31
-    snowflake_data_center_id: int = Field(ge=0, le=31)
+    smtp_host: str  # 发邮件的SMTP服务器地址
+    smtp_port: int = Field(gt=0, le=65_535)  # SMTP端口
+    smtp_username: str  # 发件邮箱账号
+    smtp_password: SecretStr  # 邮箱授权码/密码
+    smtp_use_tls: bool = True  # 是否开启TLS加密传输邮件
+    smtp_sender: str  # 对外显示的发件人邮箱
+
+    snowflake_worker_id: int = Field(ge=0, le=31)  # 雪花算法机器编号，0~31
+    snowflake_data_center_id: int = Field(ge=0, le=31)  # 雪花算法数据中心编号，0~31
