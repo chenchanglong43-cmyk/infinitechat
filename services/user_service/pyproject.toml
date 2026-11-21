@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "InfiniteChat user, contact and session service"
 requires-python = ">=3.13.14"
 dependencies = [
+    "aiokafka>=0.14,<0.15",
     "aiosmtplib>=5.1.1,<6",
     "argon2-cffi>=25,<26",
     "asyncmy>=0.2.10,<1",
