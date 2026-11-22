@@ -9,6 +9,21 @@ from infinitechat.contracts.http.auth import (
     UploadUrlResponse,
     UserRegisterRequest,
 )
+from infinitechat.contracts.http.contact import (
+    AddFriendRequest,
+    ApplyCount,
+    FriendApplication,
+    FriendDetail,
+    FriendSummary,
+    ModifyApplicationRequest,
+    NewSession,
+)
+from infinitechat.contracts.http.group import (
+    CreateGroupRequest,
+    CreateGroupResponse,
+    GroupMemberMutationResponse,
+    InviteGroupRequest,
+)
 from infinitechat.contracts.http.internal import (
     GroupMemberCount,
     GroupMembership,
@@ -19,11 +34,22 @@ from infinitechat.contracts.http.internal import (
 )
 
 __all__ = (
+    "AddFriendRequest",
+    "ApplyCount",
     "CodeLoginRequest",
+    "CreateGroupRequest",
+    "CreateGroupResponse",
+    "FriendApplication",
+    "FriendDetail",
+    "FriendSummary",
     "GroupMemberCount",
+    "GroupMemberMutationResponse",
     "GroupMembership",
+    "InviteGroupRequest",
     "LoginSessionResponse",
     "MessageValidation",
+    "ModifyApplicationRequest",
+    "NewSession",
     "PasswordLoginRequest",
     "SingleMessageValidateRequest",
     "TokenResponse",
