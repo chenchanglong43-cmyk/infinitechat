@@ -122,8 +122,61 @@ class NacosRegistry:
         index = int.from_bytes(digest[:8], "big") % len(eligible)  # 取前8字节转大整数，对实例数量取模
         return eligible[index]  # 返回选中的实例
         
-            
+        # 关闭并注销已注册实例
+    async def close(self) -> None:
+        async with self._lock:  # 加上异步锁，执行完自动释放锁
+            if self._closed:  # 如果已经标记关闭，直接返回
+                return
+            errors: list[Exception] = []  # 用来收集注销、关闭过程里所有异常
+            for instance in tuple(self._registered.values()):  # 遍历本地缓存里所有已注册实例
+                try:  # 尝试注销当前实例
+                    await self._client.deregister_instance(self._deregister_param(instance))
+                except Exception as error:  # 捕获注销时任意异常
+                    errors.append(error)  # 把异常存入错误列表
+                finally:  # 不管注销成功失败，都要清理本地缓存
+                    self._registered.pop(instance.registration_key, None)  # 删除该实例缓存记录
+            try:  # 尝试关闭nacos客户端
+                await self._client.shutdown()
+            except Exception as error:  # 捕获关闭客户端的异常
+                errors.append(error)  # 异常加入错误列表
+            self._closed = True  # 标记适配器已经关闭
+            if errors:  # 收集到异常，批量抛出异常组
+                raise ExceptionGroup("Nacos shutdown failed", errors)
+
+
+    @staticmethod  # 静态方法，不需要self
+    def _deregister_param(instance: ServiceInstance) -> DeregisterInstanceParam:
+        return DeregisterInstanceParam(  # 组装注销实例的参数对象
+            service_name=instance.service_name,  # 服务名称
+            ip=instance.ip,  # 实例ip
+            port=instance.port,  # 实例端口
+            cluster_name=instance.cluster_name,  # 集群名称
+            group_name=instance.group_name,  # 分组名称
+            ephemeral=instance.ephemeral,  # 是否临时节点
+        )
+
     # 这个是最后的        
     def _ensure_open(self) -> None:
         if self._closed:  # 判断适配器是否已经关闭
             raise RuntimeError("Nacos registry is closed")  # 已关闭则抛出运行时异常
+
+
+
+
+# 创建 Nacos 注册客户端
+async def create_nacos_registry(settings: NacosSettings) -> NacosRegistry:
+    builder = (  # 开始构造nacos客户端配置
+        ClientConfigBuilder()
+        .server_address(settings.nacos_server_addr)  # 设置nacos服务地址
+        .namespace_id(settings.nacos_namespace)  # 设置命名空间id
+        .cache_dir(str(settings.nacos_cache_dir))  # 设置缓存目录
+        .log_dir(str(settings.nacos_log_dir))  # 设置日志目录
+        .timeout_ms(settings.nacos_timeout_ms)  # 设置请求超时时间，单位毫秒
+    )
+    if settings.nacos_username and settings.nacos_password:  # 如果配置了账号密码
+        builder.username(settings.nacos_username).password(
+            settings.nacos_password.get_secret_value()  # 读取密码明文
+        )
+    client = await NacosNamingService.create_naming_service(builder.build())  # 构建配置并创建nacos命名服务客户端
+    return NacosRegistry(client)  # 包装成我们自己的注册适配器返回
+    
