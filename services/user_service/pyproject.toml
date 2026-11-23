@@ -20,6 +20,10 @@ dependencies = [
 
 [project.scripts]  # 命令行入口: 命令名 = 模块:函数
 infinitechat-user-api = "user_service.entrypoints:api_main"  # 命令 infinitechat-user-api: 运行 user_service 的 api_...
+# 命令 infinitechat-user-worker: 运行 user_service 的 w...
+infinitechat-user-worker = "user_service.entrypoints:worker_main"
+# 命令 infinitechat-user-scheduler: 运行 user_service...
+infinitechat-user-scheduler = "user_service.entrypoints:scheduler_main"
 
 [build-system]
 requires = ["hatchling"]
