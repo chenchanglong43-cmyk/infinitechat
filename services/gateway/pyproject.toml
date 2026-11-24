@@ -22,3 +22,6 @@ packages = ["gateway"]  # 包目录: ["gateway"]
 [tool.uv.sources]
 infinitechat-contracts = { workspace = true }
 infinitechat-foundation = { workspace = true }
+
+[project.scripts]  # 命令行入口: 命令名 = 模块:函数
+infinitechat-gateway-api = "gateway.entrypoints:api_main"  # 命令 infinitechat-gateway-api: 运行 gateway 的 api_main
