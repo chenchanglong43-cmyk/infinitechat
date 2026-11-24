@@ -118,6 +118,13 @@ class ConnectionManager:
 
     # 心跳刷新：给所有本机用户的redis连接记录续期，同时刷新实例存活标记
     async def refresh(self) -> None:
+        """
+            self._connections ={
+                10001: Connection(user_id=10001, connection_id="conn-a1b2", websocket=<FakeWS>),
+                10002: Connection(user_id=10002, connection_id="conn-c3d4", websocket=<FakeWS>),
+                10003: Connection(user_id=10003, connection_id="conn-e5f6", websocket=<FakeWS>),
+            }
+        """
         # tuple复制一份，避免遍历的时候字典变更报错
         for connection in tuple(self._connections.values()):
             await self._redis.expire(self.connection_key(connection.user_id), self._ttl)
