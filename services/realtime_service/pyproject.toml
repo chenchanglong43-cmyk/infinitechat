@@ -1,0 +1,25 @@
+[project]
+name = "infinitechat-realtime-service"
+version = "0.1.0"
+description = "InfiniteChat realtime WebSocket service"
+requires-python = "==3.13.*"
+dependencies = [
+    "aiokafka>=0.14,<0.15",
+    "fastapi>=0.116,<1",
+    "httpx>=0.28,<1",
+    "infinitechat-contracts",
+    "infinitechat-foundation",
+    "redis>=8,<9",
+    "uvicorn[standard]>=0.35,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]  # 打包时把哪个目录当成包
+packages = ["realtime_service"]  # 包目录: ["realtime_service"]
+
+[tool.uv.sources]
+infinitechat-contracts = { workspace = true }
+infinitechat-foundation = { workspace = true }
