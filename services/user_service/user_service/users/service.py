@@ -75,3 +75,63 @@ class UserProfileService:
         async with self._sessions() as session:
             # 查询该用户关联的全部会话id并返回
             return await SessionRepository(session).session_ids(user_id)
+
+    # 获取头像预签名上传链接
+    async def upload_urls(self, file_name: str) -> UploadUrlResponse:
+        try:
+            # 调用存储模块生成上传、下载地址
+            return await self._avatars.create_upload_urls(file_name)
+        except ValueError as error:
+            # 文件格式不对等参数问题，转成业务异常抛出
+            raise BusinessError(ErrorCode.PARAMS_ERROR, str(error)) from error
+
+    # 更新用户头像地址
+    async def update_avatar(self, user_id: int, uri: str | None) -> bool:
+        if not uri or not self._valid_avatar_uri(uri):
+            # 地址为空或者域名不在白名单，判定无效
+            raise BusinessError(ErrorCode.PARAMS_ERROR, "头像URI无效")
+        # 开启数据库会话和事务，出错自动回滚
+        async with self._sessions() as session, session.begin():
+            repo = UserRepository(session)
+            user = await repo.get_by_id(user_id)
+            if user is None:
+                # 用户不存在，直接返回false
+                return False
+            # 给用户头像字段赋值，事务提交后入库
+            user.avatar = uri
+        return True
+
+    # 批量获取用户简要信息
+    async def batch_infos(self, user_ids: list[int]) -> dict[int, UserInfo]:
+        # 限制单次最多查100个，防止一次性查太多压垮数据库
+        if len(user_ids) > 100:
+            raise BusinessError(ErrorCode.PARAMS_ERROR, "单次查询用户数量不能超过100")
+        # 开启数据库会话，会话结束自动关闭
+        async with self._sessions() as session:
+            users = await UserRepository(session).list_by_ids(user_ids)
+            # 转成 UserInfo 简短信息返回，只对外暴露昵称、头像、id
+            return {
+                user_id: UserInfo(
+                    user_id=user.user_id,
+                    nickname=user.nickname,
+                    avatar=user.avatar,
+                )
+                for user_id, user in users.items()
+            }
+
+    # 校验头像链接是否合法，白名单校验
+    def _valid_avatar_uri(self, uri: str) -> bool:
+        parsed = urlsplit(uri)
+        return (
+            # 只能是 http / https
+            parsed.scheme in {"http", "https"}
+            # 域名不能为空
+            and bool(parsed.netloc)
+            # 域名必须在我们的白名单里面，只允许自己的MinIO地址
+            and parsed.hostname in self._allowed_avatar_hosts
+            # 链接长度限制，防止超长脏数据
+            and len(uri) <= 512
+            # 链接里面不能带账号密码，避免泄露
+            and parsed.username is None
+            and parsed.password is None
+        )
