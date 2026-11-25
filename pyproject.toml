@@ -16,7 +16,8 @@ members = [  # 工作区成员目录
     "packages/foundation",  # 成员: 基础库
     "services/user_service",
     "services/gateway",
-    "services/realtime_service",  # 成员: 用户服务
+    "services/realtime_service",
+    "services/red_packet_service",  # 成员: 用户服务
 ]  # 列表结束
 
 [dependency-groups]

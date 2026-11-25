@@ -8,6 +8,7 @@ members = [
     "infinitechat-foundation",
     "infinitechat-gateway",
     "infinitechat-realtime-service",
+    "infinitechat-red-packet-service",
     "infinitechat-user-service",
     "infinitechat-workspace",
 ]
@@ -801,6 +802,35 @@ requires-dist = [
     { name = "infinitechat-contracts", editable = "packages/contracts" },
     { name = "infinitechat-foundation", editable = "packages/foundation" },
     { name = "redis", specifier = ">=8,<9" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35,<1" },
+]
+
+[[package]]
+name = "infinitechat-red-packet-service"
+version = "0.1.0"
+source = { editable = "services/red_packet_service" }
+dependencies = [
+    { name = "aiokafka" },
+    { name = "asyncmy" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "infinitechat-contracts" },
+    { name = "infinitechat-foundation" },
+    { name = "redis" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiokafka", specifier = ">=0.14,<0.15" },
+    { name = "asyncmy", specifier = ">=0.2.10,<1" },
+    { name = "fastapi", specifier = ">=0.116,<1" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "infinitechat-contracts", editable = "packages/contracts" },
+    { name = "infinitechat-foundation", editable = "packages/foundation" },
+    { name = "redis", specifier = ">=8,<9" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35,<1" },
 ]
 
