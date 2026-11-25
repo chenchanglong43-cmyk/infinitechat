@@ -32,6 +32,16 @@ from infinitechat.contracts.http.internal import (
     UserInfo,
     UserStatus,
 )
+from infinitechat.contracts.http.red_packet import (
+    ReceiveResult,
+    RedPacketBasic,
+    RedPacketBody,
+    RedPacketDetail,
+    RedPacketReceiveRecord,
+    RedPacketReceiveRequest,
+    RedPacketSendRequest,
+    RedPacketSendResponse,
+)
 
 __all__ = (
     "AddFriendRequest",
@@ -51,6 +61,14 @@ __all__ = (
     "ModifyApplicationRequest",
     "NewSession",
     "PasswordLoginRequest",
+    "ReceiveResult",
+    "RedPacketBasic",
+    "RedPacketBody",
+    "RedPacketDetail",
+    "RedPacketReceiveRecord",
+    "RedPacketReceiveRequest",
+    "RedPacketSendRequest",
+    "RedPacketSendResponse",
     "SingleMessageValidateRequest",
     "TokenResponse",
     "UpdateAvatarRequest",
