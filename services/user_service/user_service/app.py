@@ -1,61 +1,61 @@
-"""UserService FastAPI application; workers and schedulers remain separate processes."""  # 模块文档字符串：用户服务FastAPI应用，任务worker和调度器为独立进程
+"""UserService FastAPI application; workers and schedulers remain separate processes."""
 
-import time  # 时间模块
-from collections.abc import AsyncIterator  # 导入异步迭代器类型
-from contextlib import asynccontextmanager  # 异步上下文管理器，用于生命周期钩子
-from pathlib import Path  # 路径工具类
-from typing import Any  # 任意类型注解
-from urllib.parse import urlsplit  # url拆分工具
+import asyncio  # 异步编程
+import time  # 时间
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Request  # 导入FastAPI主类、请求对象
-from fastapi.exceptions import RequestValidationError  # FastAPI请求参数校验异常
-from fastapi.responses import JSONResponse  # JSON返回响应
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from infinitechat.contracts import BaseResponse, ErrorCode
 
-from infinitechat.contracts import BaseResponse, ErrorCode  # 导入统一返回体、错误码枚举
+from infinitechat.foundation.context import bind_request_context
 
-from infinitechat.foundation.context import bind_request_context  # 请求上下文绑定工具
+from infinitechat.foundation.discovery import ServiceInstance, create_nacos_registry
+from infinitechat.foundation.ids import SnowflakeNodeLease
 
-from infinitechat.foundation.discovery import ServiceInstance, create_nacos_registry  # 服务实例、Nacos注册中心创建方法
+from infinitechat.foundation.security import JwtCodec, ServiceTokenCodec
+from infinitechat.foundation.settings import NacosSettings
 
-from infinitechat.foundation.security import JwtCodec, ServiceTokenCodec  # JWT编解码器、内部服务令牌编解码器
-from infinitechat.foundation.settings import NacosSettings  # Nacos配置结构体
+from infinitechat.foundation.telemetry import FoundationMetrics
 
-from infinitechat.foundation.telemetry import FoundationMetrics  # 基础指标采集工具
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import text
 
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest  # prometheus指标常量、指标内容生成函数
-from sqlalchemy import text  # SQLAlchemy原生SQL文本构造
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
 
-from starlette.middleware.base import RequestResponseEndpoint  # 中间件请求处理端点类型
-from starlette.responses import Response  # 基础响应对象
+from user_service.auth import AuthService, PasswordManager
+from user_service.auth.routes import router as auth_router
+from user_service.config import UserServiceSettings
+from user_service.contacts import ContactService
 
-from user_service.auth import AuthService, PasswordManager  # 认证服务、密码管理器
-from user_service.auth.routes import router as auth_router  # 认证模块路由
-from user_service.config import UserServiceSettings  # 用户服务配置类
-from user_service.contacts import ContactService  # 联系人服务
+from user_service.contacts.routes import router as contacts_router
+from user_service.dependencies import UserContainer
+from user_service.errors import BusinessError
+from user_service.groups import GroupService
 
-from user_service.contacts.routes import router as contacts_router  # 联系人模块路由
-from user_service.dependencies import UserContainer  # 用户服务依赖容器
-from user_service.errors import BusinessError  # 业务自定义异常
-from user_service.groups import GroupService  # 群组服务
+from user_service.groups.routes import router as groups_router
 
-from user_service.groups.routes import router as groups_router  # 群组模块路由
+from user_service.integrations.email import SmtpEmailSender
 
-from user_service.integrations.email import SmtpEmailSender  # SMTP邮件发送器
+from user_service.integrations.minio import AvatarStorage
 
-from user_service.integrations.minio import AvatarStorage  # Minio头像存储封装
+from user_service.integrations.realtime_locator import RealtimeLocator
 
-from user_service.integrations.realtime_locator import RealtimeLocator  # 实时长连接地址定位器
+from user_service.internal_api import InternalValidationService
 
-from user_service.internal_api import InternalValidationService  # 内部权限校验服务
+from user_service.internal_api.routes import router as internal_router
 
-from user_service.internal_api.routes import router as internal_router  # 内部接口路由
+from user_service.runtime import CoreRuntime, build_core_runtime
+from user_service.users import UserProfileService
+from user_service.users.routes import router as users_router
 
-from user_service.runtime import CoreRuntime, build_core_runtime  # 核心运行时、构建运行时实例函数
-from user_service.users import UserProfileService  # 用户资料服务
-from user_service.users.routes import router as users_router  # 用户资料模块路由
-
-USER_METRICS = FoundationMetrics.create(namespace="user_service")  # 创建用户服务专属指标采集实例，命名空间user_service
-
+USER_METRICS = FoundationMetrics.create(namespace="user_service")
 
 # 构建依赖容器
 async def build_container(settings: UserServiceSettings) -> tuple[UserContainer, CoreRuntime]:
@@ -136,6 +136,7 @@ async def build_container(settings: UserServiceSettings) -> tuple[UserContainer,
     )
 
 # 创建应用
+# 创建应用
 def create_app(
     container: UserContainer | None = None,
     *,  # 星号后面的参数只能按名字传
@@ -146,30 +147,48 @@ def create_app(
     # 应用生命周期
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         owned_core: CoreRuntime | None = None  # owned核心先设为空, 类型是核心运行时(可为空)
-        if container is not None:  # 如果外部传入了依赖容器
-            app.state.container = container  # 挂载到app状态上
+        lease: SnowflakeNodeLease | None = None  # 租约先设为空, 类型是雪花节点租约(可为空)
+        lease_stop: asyncio.Event | None = None  # 租约停止先设为空, 类型是事件(可为空)
+        lease_task: asyncio.Task[None] | None = None  # 租约任务先设为空, 类型是任务(可为空)
+        if container is not None:
+            app.state.container = container
         else:
             # 配置: 配置 或者 创建用户服务配置
             configured = settings or UserServiceSettings()  # type: ignore[call-arg]
             # 拆成 built依赖容器, owned核心: 等构建依赖容器
             built_container, owned_core = await build_container(configured)
-            app.state.container = built_container  # 挂载新建好的容器
+            app.state.container = built_container
+            lease = SnowflakeNodeLease(
+                owned_core.cache.lease_store,
+                data_center_id=configured.snowflake_data_center_id,
+                worker_id=configured.snowflake_worker_id,
+                owner_label=f"{configured.service_name}:api",
+            )
+            await lease.acquire()
+            lease_stop = asyncio.Event()
+            lease_task = asyncio.create_task(lease.maintain(lease_stop))
+            app.state.snowflake_lease = lease
         try:  # 下面这段可能出错, 出错交给 except 处理
-            yield  # 交出控制权，服务在此期间运行
+            yield  # 交出
         finally:  # 不管成功还是出错, 最后都执行这里
-            if owned_core is not None:  # 是当前lifespan自己创建的核心运行时才需要关闭
+            if owned_core is not None:
+                # 断言 租约 不为空 并且 租约停止 不为空 并且 租约任务 不为空, 不成立就报错
+                assert lease is not None and lease_stop is not None and lease_task is not None
+                lease_stop.set()  # 把租约停止设成
+                await lease_task
+                await lease.release()
                 # 有效的(用户依赖容器): 应用的状态的依赖容器
                 active: UserContainer = app.state.container
-                await active.registry.deregister(active.registered_instance)  # Nacos反注册
-                await active.registry.close()  # 关闭注册中心客户端
-                await owned_core.close()  # 关闭数据库、缓存等底层资源
+                await active.registry.deregister(active.registered_instance)
+                await active.registry.close()
+                await owned_core.close()
 
-    app = FastAPI(title="InfiniteChat UserService", version="0.1.0", lifespan=lifespan)  # 实例化FastAPI应用，绑定生命周期
-    app.include_router(auth_router)  # 挂上认证路由组
-    app.include_router(users_router)  # 挂上用户资料路由组
-    app.include_router(contacts_router)  # 挂上联系人路由组
-    app.include_router(groups_router)  # 挂上群组路由组
-    app.include_router(internal_router)  # 挂上内部校验路由组
+    app = FastAPI(title="InfiniteChat UserService", version="0.1.0", lifespan=lifespan)
+    app.include_router(auth_router)  # 挂上路由组
+    app.include_router(users_router)  # 挂上路由组
+    app.include_router(contacts_router)  # 挂上路由组
+    app.include_router(groups_router)  # 挂上路由组
+    app.include_router(internal_router)  # 挂上路由组
 
     # 请求上下文
     @app.middleware("http")  # 注册中间件: 每个请求都会先经过下面这个函数
@@ -178,27 +197,27 @@ def create_app(
         request: Request,
         call_next: RequestResponseEndpoint,
     ) -> Response:
-        started = time.monotonic()  # 记录请求开始时间，单调时钟不受系统时间影响
-        outcome = "success"  # 请求结果标记，默认成功
-        request_id = request.headers.get("X-Request-Id")  # 从请求头获取请求ID
+        started = time.monotonic()
+        outcome = "success"
+        request_id = request.headers.get("X-Request-Id")
         try:  # 下面这段可能出错, 出错交给 except 处理
             with bind_request_context(  # 绑定请求上下文 context, 用完自动收尾
                 request_id=request_id,
                 correlation_id=request.headers.get("X-Correlation-Id"),
             ) as context:
-                response = await call_next(request)  # 放行请求，执行后续逻辑
-                response.headers["X-Request-Id"] = context.request_id  # 回写请求ID到响应头
-                response.headers["X-Correlation-Id"] = context.correlation_id  # 回写链路追踪ID
-                if response.status_code >= 500:  # 5xx服务端错误标记为失败
+                response = await call_next(request)
+                response.headers["X-Request-Id"] = context.request_id
+                response.headers["X-Correlation-Id"] = context.correlation_id
+                if response.status_code >= 500:
                     outcome = "error"
                 return response
         except Exception:  # 任何异常都在这里接住
-            outcome = "error"  # 标记结果为失败
-            raise  # 把刚才的异常原样抛出去，交给异常处理器
+            outcome = "error"
+            raise  # 把刚才的异常原样抛出去
         finally:  # 不管成功还是出错, 最后都执行这里
-            # 请求计数指标 +1
+            # 它加 1
             USER_METRICS.requests.labels("UserService", "http", request.url.path, outcome).inc()
-            # 记录请求耗时
+            # 它记录一次 取单调时钟 - 开始时间
             USER_METRICS.request_duration.labels("UserService", "http", request.url.path).observe(
                 time.monotonic() - started
             )
@@ -207,7 +226,7 @@ def create_app(
     @app.exception_handler(BusinessError)  # business错误 统一交给下面的函数处理
     # 业务错误处理
     async def business_error(request: Request, error: BusinessError) -> JSONResponse:
-        body = BaseResponse[Any].error(error.code, message=error.message)  # 组装统一错误返回体
+        body = BaseResponse[Any].error(error.code, message=error.message)
         status_code = (
             401
             if request.url.path.startswith("/api/internal/")
@@ -221,7 +240,7 @@ def create_app(
             }
             else 200
         )
-        return JSONResponse(status_code=status_code, content=body.to_wire())  # 返回JSON响应
+        return JSONResponse(status_code=status_code, content=body.to_wire())
 
     @app.exception_handler(RequestValidationError)  # 请求校验错误 统一交给下面的函数处理
     # 参数校验错误
@@ -253,28 +272,32 @@ def create_app(
     @app.get("/health/live")  # 注册 GET 接口 /health/live
     # 存活探针
     async def live() -> dict[str, str]:
-        return {"status": "UP"}  # 存活，容器不重启
+        return {"status": "UP"}
 
     # 就绪探针
     @app.get("/health/ready")  # 注册 GET 接口 /health/ready
     # 就绪探针
     async def ready(request: Request) -> dict[str, str]:
         active = request.app.state.container
+        lease = getattr(request.app.state, "snowflake_lease", None)
+        if lease is not None and not lease.held:
+            # Snowflake node lease lost
+            raise RuntimeError("Snowflake node lease lost")
         async with active.session_factory() as session:  # 开一个数据库会话, 用完自动关闭
-            await session.scalar(text("SELECT 1"))  # 探活数据库
+            await session.scalar(text("SELECT 1"))
         if not await active.cache.ping():
             # Redis readiness failed
             raise RuntimeError("Redis readiness failed")
-        return {"status": "UP"}  # 全部依赖正常，服务就绪
+        return {"status": "UP"}
 
     # 指标导出
     @app.get("/metrics")  # 注册 GET 接口 /metrics
     # 指标导出
     async def metrics() -> Response:
-        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)  # 返回prometheus指标文本
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     return app
 
 # 默认应用入口
 def create_default_app() -> FastAPI:
-    return create_app()  # 无参创建默认应用实例
+    return create_app()
