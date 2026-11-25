@@ -126,7 +126,7 @@ class ConnectionManager:
             }
         """
         # tuple复制一份，避免遍历的时候字典变更报错
-        for connection in tuple(self._connections.values()):
+        for connection in tuple[Connection, ...](self._connections.values()):
             await self._redis.expire(self.connection_key(connection.user_id), self._ttl)
         # 标记当前realtime实例还活着
         await self._redis.set(
