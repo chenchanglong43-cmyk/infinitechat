@@ -6,49 +6,40 @@ from dataclasses import dataclass  # 数据类：用来定义轻量的数据载�
 
 from redis.asyncio import Redis  # 异步 Redis 客户端
 
-# 原子领取：防重复、从金额池弹出一份、记录谁领了多少
-# 下面这段 Lua 会在 Redis 里一次性执行完，相当于一个不可打断的事务
+# 原子领取脚本：防重复、从金额池弹出一份、记录谁领了多少
+# KEYS[1] = 金额池列表，KEYS[2] = 领取记录哈希（userId -> 金额）
+# ARGV[1] = 用户ID，ARGV[2] = 记录过期时间（秒）
+# 返回：{-1, 上次金额} 表示重复领取；{-2, 0} 表示已抢完；{金额, 是否刚领完} 表示成功
 RECEIVE_SCRIPT = """
--- KEYS[1] = 金额池列表，KEYS[2] = 领取记录哈希（userId -> 金额）
--- ARGV[1] = 用户ID，ARGV[2] = 记录过期时间（秒）
 local poolKey = KEYS[1]
 local recordsKey = KEYS[2]
 local userId = ARGV[1]
 local ttl = tonumber(ARGV[2])
--- 先看这个用户是不是已经领过：领过就把上次的金额原样返回，状态码 -1
 if redis.call('HEXISTS', recordsKey, userId) == 1 then
     return {-1, tonumber(redis.call('HGET', recordsKey, userId))}
 end
--- 没领过，从池子左边弹出一份金额
 local amount = redis.call('LPOP', poolKey)
--- 弹不出来说明池子空了，状态码 -2 表示已经被抢完
 if not amount then
     return {-2, 0}
 end
--- 记下这个用户领到的金额，并给整张记录表设置过期时间（每次领取都会把 TTL 刷新一遍）
-redis.call('HSET', recordsKey, userId, amount)  -- 记录：这个用户领到了多少
+redis.call('HSET', recordsKey, userId, amount)
 redis.call('EXPIRE', recordsKey, ttl)
--- 弹出这一份后池子正好空了，就把“已领完”标记置 1
 local completed = 0
 if redis.call('LLEN', poolKey) == 0 then completed = 1 end
--- 返回 {领到的金额, 是否刚好领完}
 return {tonumber(amount), completed}
 """
 
-# 初始化金额池：把事先算好的每份金额塞进 Redis 列表，已存在就跳过（可重复调用）
-# 同样是 Lua 脚本，保证初始化时不会并发插队
+# 初始化金额池脚本：把事先算好的每份金额塞进列表，已存在就跳过（可重复调用）
+# KEYS[1] = 金额池；ARGV 前面全是金额，最后一个参数是过期时间（秒）
+# 返回实际写入的份数；池子已存在时返回 0
 INIT_SCRIPT = """
 local poolKey = KEYS[1]
--- 池子已经建过就直接返回 0，避免重复初始化把金额翻倍
 if redis.call('EXISTS', poolKey) == 1 then return 0 end
--- 最后一个参数是过期时间，前面的参数全是金额，从右边一个一个追加
--- RPUSH 进、LPOP 出，正好是先进先出，领取顺序和放入顺序一致
 for index = 1, #ARGV - 1 do redis.call('RPUSH', poolKey, ARGV[index]) end
--- 给整个池子设置过期时间，到点 Redis 自动清理，不用额外定时任务
 redis.call('EXPIRE', poolKey, tonumber(ARGV[#ARGV]))
--- 返回实际放入了多少份
 return #ARGV - 1
 """
+
 
 # Redis 领取脚本的返回结果：把 Lua 返回的数组翻译成一个好用的对象
 @dataclass(frozen=True, slots=True)  # 数据类：自动生成构造方法；frozen 创建后不能改，slots 省内存
