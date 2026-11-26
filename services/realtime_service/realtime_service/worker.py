@@ -66,3 +66,4 @@ async def run_worker(settings: RealtimeSettings, router: MessageRouter) -> None:
                 handler=notification,  # 收到后走通知路由
             )
         )
+    
